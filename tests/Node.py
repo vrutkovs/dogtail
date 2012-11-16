@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
 Unit tests for the dogtail.Node class
 
@@ -464,6 +465,130 @@ class TestExceptions(GtkDemoTest):
         import gi._glib
         # Ensure that we get an exception when we try to work further with it:
         self.assertRaises(gi._glib.GError, self.app.dump)
+
+class TestConfiguration(unittest.TestCase):
+    def test_get_set_all_properties(self):
+        for option in dogtail.config.config.defaults.keys():
+            print("Setting config.%s property" % option)
+            value = ''
+            if 'Dir' in option: value = '/tmp/dogtail/'  # Special value for dir-related properties
+            dogtail.config.config.__setattr__(option, value)
+            self.assertEquals(dogtail.config.config.__getattr__(option), value)
+
+    def test_default_directories_created(self):
+        import os.path
+        self.assertEquals(os.path.isdir(dogtail.config.config.scratchDir), True)
+        self.assertEquals(os.path.isdir(dogtail.config.config.logDir), True)
+        self.assertEquals(os.path.isdir(dogtail.config.config.dataDir), True)
+
+    def test_set(self):
+        self.assertRaises(AttributeError, setattr, dogtail.config.config, 'nosuchoption', 42)
+
+    def test_get(self):
+        self.assertRaises(AttributeError, getattr, dogtail.config.config, 'nosuchoption')
+
+    def helper_create_directory_and_set_option(self, path, property_name):
+        import os.path
+        if os.path.isdir(path):
+            import shutil
+            shutil.rmtree(path)
+        dogtail.config.config.__setattr__(property_name, path)
+        self.assertEquals(os.path.isdir(path), True)
+
+    def test_create_scratch_directory(self):
+        new_folder = "/tmp/dt"
+        self.helper_create_directory_and_set_option(new_folder, 'scratchDir')
+
+    def test_create_data_directory(self):
+        new_folder = "/tmp/dt_data"
+        self.helper_create_directory_and_set_option(new_folder, 'dataDir')
+
+    def test_create_log_directory(self):
+        new_folder = "/tmp/dt_log"
+        self.helper_create_directory_and_set_option(new_folder, 'logDir')
+
+    def test_load(self):
+        dogtail.config.config.load({'actionDelay': 2.0})
+        self.assertEquals(dogtail.config.config.actionDelay, 2.0)
+
+    def test_reset(self):
+        default_actionDelay = dogtail.config.config.defaults['actionDelay']
+        dogtail.config.config.actionDelay = 2.0
+        dogtail.config.config.reset()
+        self.assertEquals(dogtail.config.config.actionDelay, default_actionDelay)
+
+def trap_stdout(function, args=None):
+    import sys
+    from StringIO import StringIO
+
+    saved_stdout = sys.stdout
+    try:
+        out = StringIO()
+        sys.stdout = out
+        if args:
+            function(args)
+        else:
+            function()
+        output = out.getvalue().strip()
+    finally:
+        sys.stdout = saved_stdout
+    return output
+
+class TestDump(GtkDemoTest):
+
+    def test_dump_to_stdout(self):
+        child = self.app.child('Source')
+        output = trap_stdout(child.dump)
+        self.assertEquals(output,
+            """[page tab | Source]
+ [scroll pane | ]
+  [text | ]
+  [scroll bar | ]
+   [action | activate |  ]
+  [scroll bar | ]
+   [action | activate |  ]""")
+
+class TestErrors(unittest.TestCase):
+
+    def test_warn(self):
+       output = trap_stdout(dogtail.errors.warn, ('WARNING'))
+       self.assertEquals('WARNING' in output, True)
+
+class TestLogging(unittest.TestCase):
+
+    def setUp(self):
+        self.old_log_dir = dogtail.config.config.logDir
+
+    def tearDown(self):
+        dogtail.config.config.logDir = self.old_log_dir
+
+    def test_entryStamp_is_not_empty(self):
+        ts = dogtail.logging.TimeStamp()
+        self.assertEquals(len(ts.entryStamp()) > 0, True)
+
+    def test_correct_error_if_log_dir_does_not_exist(self):
+        import shutil
+        shutil.rmtree(dogtail.config.config.logDir)
+        self.assertRaises(IOError, dogtail.logging.Logger, "log", file = True)
+
+    def test_unique_name(self):
+        logger1 = dogtail.logging.Logger("log", file = True)
+        logger1.createFile()
+        logger2 = dogtail.logging.Logger("log", file = True)
+        logger2.createFile()
+        logger3 = dogtail.logging.Logger("log", file = True)
+        self.assertNotEquals(logger1.fileName, logger2.fileName)
+        self.assertNotEquals(logger2.fileName, logger3.fileName)
+
+    def test_results_logger_correct_dict(self):
+        logger = dogtail.logging.ResultsLogger("log")
+        output = trap_stdout(logger.log, {'a': '1'})
+        self.assertEquals('a:      1' in output, True)
+
+    def test_results_logger_incorrect_dict(self):
+        logger = dogtail.logging.ResultsLogger("log")
+        self.assertRaises(ValueError, logger.log, "not a dict")
+
 
 if __name__ == '__main__':
     unittest.main()
