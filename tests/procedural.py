@@ -21,11 +21,9 @@ class GtkDemoTest(Node.GtkDemoTest):
 
 
 class TestFocusApplication(GtkDemoTest):
-    
-    # FIXME: Should the following pass? Design decision.
-    #def testFocusingBogusName(self):
-    #    focus.application("should not be found")
-    #    self.assertEquals(focus.application.node, None)
+    def testFocusingBogusName(self):
+        config.fatalErrors = True
+        self.assertRaises(FocusError, focus.application, "should not be found")
 
     def testFocusingBasic(self):
         "Ensure that focus.application() sets focus.application.node properly"
@@ -35,9 +33,16 @@ class TestFocusApplication(GtkDemoTest):
 
 
 class TestFocusWidget(GtkDemoTest):
+    def testFocusingEmptyName(self):
+        self.assertRaises(TypeError, focus.widget)
+
     def testFocusingBogusName(self):
         focus.widget("should not be found")
         self.assertEquals(focus.widget.node, None)
+
+    def testThrowExceptionFocusingBogusName(self):
+        config.fatalErrors = True
+        self.assertRaises(FocusError, focus.widget, "should not be found")
 
     def testFocusingBasic(self):
         "Ensure that focus.widget('foo') finds a node with name 'foo'"
@@ -77,6 +82,35 @@ class TestFocus(GtkDemoTest):
         self.assert_(isinstance(focus.widget.node, tree.Node))
         self.assertEquals(focus.widget.node.role, pyatspi.ROLE_PAGE_TAB)
 
+    def testFocusMenu(self):
+        self.runDemo('Application main window')
+        focus.window('Application Window')
+        focus.menu('File')
+        self.assert_(isinstance(focus.widget.node, tree.Node))
+        self.assertEquals(focus.widget.node.role, pyatspi.ROLE_MENU)
+
+class TestKeyCombo(GtkDemoTest):
+    def testKeyCombo(self):
+        self.runDemo('Application main window')
+        focus.window('Application Window')
+        keyCombo("<ctrl>a")
+        focus.dialog('About GTK+ Code Demos')
+
+class TestActions(GtkDemoTest):
+    def testClick(self):
+        click('Source')
+        self.assertTrue(focus.widget.isSelected)
+
+    def testSelect(self):
+        select('Source')
+        self.assertTrue(focus.widget.isSelected)
+
+    def testTyping(self):
+        self.runDemo('Dialog and Message Boxes')
+        focus.window('Dialogs')
+        focus.widget(roleName='text')
+        type("hello world")
+        self.assertEquals(focus.widget.node.text, 'hello world')
 
 if __name__ == "__main__":
     unittest.main()

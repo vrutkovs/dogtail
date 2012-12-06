@@ -1,0 +1,290 @@
+--- tests/Node.py
++++ tests/Node.py
+@@ -1,4 +1,5 @@
+ #!/usr/bin/env python
++# -*- coding: utf-8 -*-
+ """
+ Unit tests for the dogtail.Node class
+ 
+@@ -120,6 +121,12 @@
+         self.assertEquals(kids[0].name, "GTK+ Code Demos")
+         self.assertEquals(kids[0].roleName, "frame")
+ 
++    def testGetChildrenWhenLimitedInConfig(self):
++        "a list of gtk-demos should be limited to config value"
++        dogtail.config.config.childrenLimit = 10
++        kids = self.app.child(roleName='tree table').children
++        self.assertEquals(len(kids), 10)
++
+     def testSetChildren(self):
+         "Node.children should be read-only"
+         self.assertRaises(AttributeError, self.app.__setattr__,  "children", [])
+@@ -330,6 +337,22 @@
+         "Node.toolkit should be read-only"
+         self.assertRaises(AttributeError, self.app.__setattr__,  "toolkitName", "GAIL")
+ 
++    # 'debugName':
++    def testGetDebugName(self):
++        self.assertEquals(self.app.debugName, u'"gtk-demo" application')
++
++    def testSetDebugName(self):
++        self.app.debugName = 'test'
++        self.assertEquals(self.app.debugName, "test")
++
++    # 'dead' (readonly string):
++    def testGetDead(self):
++        self.assertEquals(self.app.dead, False)
++
++    def testSetDead(self):
++        "Node.dead should be read-only"
++        self.assertRaises(AttributeError, self.app.__setattr__,  "dead", True)
++
+     # 'ID'
+     def testGetID(self):
+         "Node.id should be numeric"
+@@ -339,7 +362,35 @@
+         "Node.id should be read-only"
+         self.assertRaises(AttributeError, setattr, self.app, "id", 42)
+ 
++    def testKeyCombo(self):
++        self.runDemo('Application main window')
++        wnd = self.app.window('Application Window')
++        wnd.keyCombo("<ctrl>a")
++        from dogtail.predicate import IsADialogNamed
++        self.assertEquals(len(self.app.findChildren(IsADialogNamed('About GTK+ Code Demos'))), 1)
++
++    def testIsChild(self):
++        self.assertTrue(self.app.isChild(name='Builder'))
++
++    def testGetVisibleStrings(self):
++        visible_strings = ['gtk-demo', 'GTK+ Code Demos',
++        'Widget (double click for demo)', 'Widget (double click for demo)',
++        'Application main window', 'Assistant', 'Builder', 'Button Boxes',
++        'Change Display', 'Clipboard', 'Color Selector', 'Combo boxes',
++        'Dialog and Message Boxes', 'Drawing Area', 'Entry', 'Expander',
++        'Icon View', 'Images', 'Info bar', 'Links', 'Menus',
++        'Offscreen windows', 'Paned Widgets', 'Pickers', 'Pixbufs',
++        'Printing', 'Rotated Text', 'Size Groups', 'Spinner',
++        'Stock Item and Icon Browser', 'Text Widget', 'Tool Palette',
++        'Tree View', 'UI Manager', 'Entry Buffer', 'Entry Completion',
++        'Search Entry', 'Icon View Basics', 'Editing and Drag-and-Drop',
++        'Rotated button', 'Effects', 'Hypertext', 'Multiple Views',
++        'Automatic scrolling', 'Editable Cells', 'List Store',
++        'Tree Store', 'Info', 'Source']
++        self.assertEquals(self.app.getUserVisibleStrings(), visible_strings)
++
+ class TestSelection(GtkDemoTest):
++
+     def testTabs(self):
+         """
+         Tabs in the gtk-demo should be selectable, and be queryable for
+@@ -360,12 +411,76 @@
+         self.assert_(not info.isSelected, False)
+         self.assert_(source.isSelected)
+ 
+-        # Deselect tab:
+-        #source.deselect()
++    def testSelectDeselect(self):
++        treeViewCell = self.app.child('Icon View', roleName = 'table cell')
++        treeViewCell.typeText('+')
++        dogtail.tree.doDelay()
++        sb = self.app.child(roleName = 'scroll bar')
++        sb.value += 50
++        self.runDemo('Icon View Basics')
++
++        wnd = self.app.window('GtkIconView demo')
++        icons = wnd.child(roleName='layered pane').children
++
++        icons[0].select()
++        icons[1].select()
++        icons[0].deselect()
++        self.assertFalse(icons[0].isSelected)
++        self.assertTrue(icons[1].isSelected)
++
++    def testSelectAll(self):
++        treeViewCell = self.app.child('Icon View', roleName = 'table cell')
++        treeViewCell.typeText('+')
++        dogtail.tree.doDelay()
++        sb = self.app.child(roleName = 'scroll bar')
++        sb.value += 50
++        self.runDemo('Icon View Basics')
++
++        wnd = self.app.window('GtkIconView demo')
++        pane = wnd.child(roleName='layered pane')
++        icons = pane.children
++
++        self.assertTrue(pane.selectAll())
++        for icon in icons:
++            self.assertTrue(icon.isSelected)
++
++    def testDeselectAll(self):
++        treeViewCell = self.app.child('Icon View', roleName = 'table cell')
++        treeViewCell.typeText('+')
++        dogtail.tree.doDelay()
++        sb = self.app.child(roleName = 'scroll bar')
++        sb.value += 50
++        self.runDemo('Icon View Basics')
++
++        wnd = self.app.window('GtkIconView demo')
++        pane = wnd.child(roleName='layered pane')
++        icons = pane.children
++
++        icons[0].select()
++        icons[5].select()
++        icons[7].select()
++
++        self.assertTrue(pane.deselectAll())
++        for icon in icons:
++            self.assertFalse(icon.isSelected)
++
++    def testSelectedChildren(self):
++        treeViewCell = self.app.child('Icon View', roleName = 'table cell')
++        treeViewCell.typeText('+')
++        dogtail.tree.doDelay()
++        sb = self.app.child(roleName = 'scroll bar')
++        sb.value += 50
++        self.runDemo('Icon View Basics')
+ 
+-        # Check state:
+-        #self.assert_(info.isSelected)
+-        #self.assert_(not source.isSelected)
++        wnd = self.app.window('GtkIconView demo')
++        pane = wnd.child(roleName='layered pane')
++        icons = pane.children
++
++        selected_icons = [icons[0], icons[3], icons[5]]
++        for icon in selected_icons:
++            icon.select()
++
++        self.assertEquals(pane.selectedChildren, selected_icons)
+ 
+ class TestValue(GtkDemoTest):
+     def testGetValue(self):
+@@ -446,14 +561,67 @@
+         direct_cells = filter(lambda cell: cell.roleName=='table cell',  table.children)
+         self.assertEquals(len(cells), len(direct_cells))
+ 
++    def testFindAncestor(self):
++        cell = self.app.child('Builder')
++        pred = dogtail.predicate.GenericPredicate(roleName = 'application')
++        self.assertEquals(cell.findAncestor(pred), self.app)
+ 
+ class TestActions(GtkDemoTest):
+-    # FIXME: should test the various actions
+-    pass
+-
+-class TestProcedural(GtkDemoTest):
+-    # FIXME: should test the procedural API
+-    pass
++    def test_click(self):
++        self.runDemo('Application main window')
++        wnd = self.app.window('Application Window')
++        action = wnd.child(name='About').actions['click']
++        self.assertEquals(action.name, 'click')
++        self.assertEquals(action.description, '')
++        self.assertEquals(action.keyBinding, 'a;<Alt>h:a;<Primary>a')
++        self.assertEquals(str(action), '[action | click | a;<Alt>h:a;<Primary>a ]')
++
++        action.do()
++        from dogtail.predicate import IsADialogNamed
++        self.assertEquals(len(self.app.findChildren(IsADialogNamed('About GTK+ Code Demos'))), 1)
++
++    def test_press(self):
++        self.runDemo('Application main window')
++        wnd = self.app.window('Application Window')
++        child = wnd.child(name='Quit')
++        action = child.actions['press']
++        self.assertEquals(action.name, 'press')
++        self.assertEquals(action.description, '')
++        self.assertEquals(action.keyBinding, '')
++        self.assertEquals(str(action), '[action | press |  ]')
++
++        action.do()
++        self.assertTrue(pyatspi.state.STATE_ARMED in child.getState().getStates())
++
++    def test_release(self):
++        self.runDemo('Application main window')
++        wnd = self.app.window('Application Window')
++        child = wnd.child(name='Quit')
++        action = child.actions['release']
++        self.assertEquals(action.name, 'release')
++        self.assertEquals(action.description, '')
++        self.assertEquals(action.keyBinding, '')
++        self.assertEquals(str(action), '[action | release |  ]')
++
++        child.actions['press'].do()
++        child.actions['release'].do()
++        self.assertTrue(pyatspi.state.STATE_ARMED not in child.getState().getStates())
++
++    def test_activate(self):
++        child = self.app.child(name='Application main window')
++        action = child.actions['activate']
++        self.assertEquals(action.name, 'activate')
++        self.assertEquals(action.description, 'activate the cell')
++        self.assertEquals(action.keyBinding, '')
++        self.assertEquals(str(action), '[action | activate |  ]')
++
++        action.do()
++        from dogtail.predicate import IsAWindowNamed
++        self.assertEquals(len(self.app.findChildren(IsAWindowNamed('Application Window'))), 1)
++
++    def test_incorrect_action(self):
++        child = self.app.child(name='Application main window')
++        self.assertRaises(dogtail.tree.ActionNotSupported, child.doActionNamed, 'none')
+ 
+ class TestExceptions(GtkDemoTest):
+     def test_exception(self):
+@@ -465,5 +633,53 @@
+         # Ensure that we get an exception when we try to work further with it:
+         self.assertRaises(gi._glib.GError, self.app.dump)
+ 
++def trap_stdout(function, args=None):
++    import sys
++    from StringIO import StringIO
++
++    saved_stdout = sys.stdout
++    try:
++        out = StringIO()
++        sys.stdout = out
++        if args:
++            if type(args) is dict:
++                function(**args)
++            else:
++                function(args)
++        else:
++            function()
++        output = out.getvalue().strip()
++    finally:
++        sys.stdout = saved_stdout
++    return output
++
++class TestDump(GtkDemoTest):
++
++    def setUp(self):
++        super(TestDump, self).setUp()
++        self.child = self.app.child("Source")
++        self.expected = """[page tab | Source]
++ [scroll pane | ]
++  [text | ]
++  [scroll bar | ]
++   [action | activate |  ]
++  [scroll bar | ]
++   [action | activate |  ]"""
++
++    def test_dump_to_stdout(self):
++        output = trap_stdout(self.child.dump)
++        self.assertEquals(output, self.expected)
++
++class TestErrors(unittest.TestCase):
++    def test_warn(self):
++        output = trap_stdout(dogtail.errors.warn, ('WARNING'))
++        self.assertEquals('WARNING' in output, True)
++
++class TestTree(GtkDemoTest):
++    def test_check_for_a11y(self):
++        dogtail.config.config.checkForA11y = True
++        dogtail.tree.checkForA11y()
++
++
+ if __name__ == '__main__':
+     unittest.main()
