@@ -1,0 +1,1 @@
+[![Build Status](https://travis-ci.org/roignac/dogtail.png?branch=master)](https://travis-ci.org/roignac/dogtail) [![Coverage Status](https://coveralls.io/repos/roignac/dogtail/badge.png?branch=master)](https://coveralls.io/r/roignac/dogtail?branch=master)
